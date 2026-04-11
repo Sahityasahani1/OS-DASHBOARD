@@ -1,0 +1,12 @@
+# OS Resource Dashboard Dependencies
+# Install dependencies with: pip install -r requirements.txt
+
+# Web Framework & Visualization
+dash>=2.14.0
+plotly>=5.17.0
+
+# Data Processing
+pandas>=2.0.0
+
+# Optional: For better development experience
+gunicorn>=21.0.0  # Production server (optional)
