@@ -1,16 +1,16 @@
-# Code Structure & Architecture Guide
+# Code Structure & Architecture Guide — v3.0
 
 ## 📋 Overview
 
-The OS Resource Dashboard is built with **Dash** (a web framework from Plotly). Here's how it's organized:
+The OS Resource Dashboard v3.0 is built with **Dash** (a web framework from Plotly). It features a glassmorphism UI, 6 scheduling algorithms, real-time resource monitoring, and an educational process simulator — all in a single Python file.
 
 ---
 
 ## 📁 File Structure
 
 ```
-OS ESE LAB/
-├── OSdashbord.py         ← Main application file
+OS-DASHBOARD/
+├── OSdashbord.py         ← Main application file (~1300 lines)
 ├── requirements.txt      ← Python dependencies
 ├── README.md             ← Full documentation
 ├── QUICK_START.md        ← Quick user guide
@@ -23,77 +23,100 @@ OS ESE LAB/
 
 ### Section 1: Module Documentation & Imports
 ```python
-"""Module docstring explaining what the app does"""
-import dash, plotly, pandas, random, datetime
+"""Module docstring — features list"""
+import dash, plotly, random, datetime
 ```
-- Explains the app's purpose and features
-- Imports all necessary libraries
+- Explains the app's purpose and all features
+- Imports all necessary libraries (no pandas dependency in v3.0)
 
-### Section 2: Configuration & Constants
+### Section 2: Custom HTML Template (`app.index_string`)
 ```python
-COLORS = {...}           # Color definitions
-SPACING = {...}          # Layout spacing values
-RESOURCE_LIMITS = {...}  # Min/max values for resources
-LABELS = {...}           # User-facing text
+app.index_string = '''<!DOCTYPE html>...'''
+```
+- **Google Fonts**: JetBrains Mono + Inter
+- **CSS Animations**: `neonPulse`, `borderGlow`, `slideInLeft`, `pulseRed`
+- **Glassmorphism cards**: `.glass-card`, `.glass-card-warm`, `.glass-card-terminal`
+- **Button styles**: `.spawn-btn`, `.kill-btn`, `.control-btn`, `.preset-btn`
+- **Log entry styles**: `.log-approved`, `.log-denied`, `.log-kill`, `.log-deadlock`, etc.
+- **Dark theme dropdown overrides**: `.Select-control`, `.Select-menu-outer`
+
+### Section 3: Configuration & Constants
+```python
+COLORS = {...}             # Color palette (cyan, red, yellow, blue, purple)
+RESOURCE_LIMITS = {...}    # Min/max values for CPU, RAM, Disk, lifetime, PID
+PROCESS_PRESETS = {...}    # 5 preset templates (Browser, Game, Editor, Database, Compiler)
+ALGO_INFO = {...}          # Descriptions for all 6 scheduling algorithms
 ```
 **Why?** Centralizing these makes the code easy to maintain and customize.
 
-### Section 3: Utility Functions
+### Section 4: Scheduling Algorithms (6 functions)
 ```python
-def get_styled_div(flex=1, padding=None)
-def get_styled_input(width='100%', margin_bottom='15px')
-def get_styled_button(background_color, text_color='#000')
+def apply_fifo_scheduling(processes)
+def apply_round_robin_scheduling(processes, time_quantum=10)
+def apply_sjf_scheduling(processes)
+def apply_priority_scheduling(processes)
+def apply_random_scheduling(processes)
+def apply_srtn_scheduling(processes)
 ```
-**Why?** Reusable functions reduce code duplication and ensure consistency.
+Each function takes a list of process dicts and returns the modified list after one tick of scheduling.
 
-### Section 4: Application Layout
+### Section 5: Application Layout
 ```python
-app.layout = html.Div(
-    children=[
-        # Header
-        # Three-column section (System Load | Process Injector | Kernel Logs)
-        # Process table
-        # Hidden data stores
-    ]
-)
+app.layout = html.Div(children=[
+    # Title (neon animated)
+    # Stats ribbon (5 stat cards)
+    # Three-column section (System Load | Process Injector | Kernel Logs)
+    # Resource History chart
+    # Process Control section (Gantt + Table + Kill buttons)
+    # Hidden state stores (5 dcc.Store) + Interval timer
+])
 ```
-**Why?** Clean separation makes the UI structure obvious at a glance.
 
-### Section 5: Callbacks (Application Logic)
+### Section 6: Callbacks (10 total)
 ```python
-@app.callback(...)
-def os_kernel_loop(...):
-    """Handles spawning, terminating, and lifecycle management"""
-
-@app.callback(...)
-def render_system_metrics(...):
-    """Updates all charts and graphs"""
+fill_preset()           # Preset buttons → fill form
+update_algo_info()      # Dropdown → algorithm info card
+toggle_pause()          # Pause button → disable interval
+change_speed()          # Speed slider → adjust interval ms
+os_kernel_loop()        # Main kernel (scheduling, spawn, kill, deadlock)
+render_system_metrics() # State → charts + table
+render_history_chart()  # History → line chart
+render_gantt_chart()    # Gantt → timeline bar chart
+render_kernel_logs()    # Log entries → colored HTML divs
+render_stats()          # Stats → ribbon cards
 ```
-**Why?** Callbacks connect user interactions to data updates.
 
-### Section 6: Entry Point
+### Section 7: Entry Point
 ```python
 if __name__ == '__main__':
     app.run(debug=True)
 ```
-**Why?** Allows the file to be both imported and run directly.
 
 ---
 
 ## 🔄 Data Flow
 
 ```
-User Action (click button, move slider)
+User Action (click button, move slider, select preset)
          ↓
 Callback triggered (@app.callback)
          ↓
-Process data updated / modified
+State stores updated (processes, logs, stats, gantt, history)
          ↓
-New state stored (dcc.Store)
+Dependent callbacks fire automatically
          ↓
-Charts & table re-render automatically
+Charts, table, logs, stats re-render
          ↓
 User sees updated dashboard
+```
+
+### Store → Callback Dependencies
+```
+state-store  ──→ render_system_metrics() ──→ CPU gauge, RAM bar, Disk bar, Table
+log-store    ──→ render_kernel_logs()    ──→ Color-coded log entries
+stats-store  ──→ render_stats()          ──→ Stats ribbon cards
+gantt-store  ──→ render_gantt_chart()    ──→ Scheduling timeline
+history-store──→ render_history_chart()  ──→ 60s resource graph
 ```
 
 ---
@@ -103,185 +126,152 @@ User sees updated dashboard
 ### Colors Dictionary
 ```python
 COLORS = {
-    'background': '#121212',        # Dark gray
-    'text_accent_cyan': '#00ffcc',  # Bright green
-    # ... more colors
+    'bg': '#0a0a0f',          # Near-black background
+    'cyan': '#00ffcc',        # Primary accent (neon green)
+    'red': '#ff0055',         # Danger / high usage
+    'yellow': '#ffcc00',      # Warning / memory
+    'blue': '#00ccff',        # Info / history
+    'text': '#e0e0e0',        # Primary text
+    'text_dim': '#888',       # Secondary text
 }
 ```
-- Centralized color management
-- Easy to apply a different theme (change one place, affects entire app)
-- Improves readability with descriptive names
 
-### Resource Limits
+### Process Presets
 ```python
-RESOURCE_LIMITS = {
-    'cpu_max': 100,              # Maximum CPU %
-    'memory_max': 2048,          # Maximum RAM in MB
-    'process_lifetime_min': 15,  # Minimum process duration
-    # ... more limits
+PROCESS_PRESETS = {
+    'browser':  {'name': 'WebBrowser',   'cpu': 25,  'mem': 512,  'disk': 30,  ...},
+    'game':     {'name': 'GameEngine',   'cpu': 60,  'mem': 1024, 'disk': 100, ...},
+    'editor':   {'name': 'TextEditor',   'cpu': 3,   'mem': 64,   'disk': 5,   ...},
+    'database': {'name': 'PostgreSQL',   'cpu': 15,  'mem': 256,  'disk': 200, ...},
+    'compiler': {'name': 'GCC-Compiler', 'cpu': 40,  'mem': 512,  'disk': 80,  ...},
 }
 ```
-- All limits in one place
-- Easy to adjust simulator behavior
-- Self-documenting code
+Used by the pattern-matching callback `fill_preset()` via `Input({'type': 'preset-btn', 'index': ALL}, 'n_clicks')`.
 
-### Labels
+### Algorithm Info
 ```python
-LABELS = {
-    'title': 'OS Resource Dashboard v2.0',
-    'spawn_button': 'Spawn Process',
-    # ... more labels
+ALGO_INFO = {
+    'fifo': {
+        'name': 'FIFO (First In, First Out)',
+        'type': 'Non-Preemptive',          # Badge color depends on this
+        'desc': '...',                      # Explanation text
+        'pros': 'Simple, no starvation',    # ✅ Green text
+        'cons': 'Convoy effect',            # ⚠️ Orange text
+        'fairness': '⭐⭐',               # Star rating
+    },
+    # ... 5 more algorithms
 }
 ```
-- Centralized text reduces typos
-- Easy to update text in bulk
-- Could be extended for localization
 
 ---
 
 ## 🔌 Callback Functions Explained
 
-### Callback 1: os_kernel_loop()
-**Purpose:** Handles all process lifecycle events
+### Main Kernel Loop: `os_kernel_loop()`
+**6 Outputs:** state-store, log-store, selected_rows, stats-store, gantt-store, history-store
 
-**Triggered by:**
-1. ⏱️ Clock tick (every 1 second)
+**5 Inputs (triggers):**
+1. ⏱️ Clock tick (every 1 second / adjusted by speed)
 2. 🔘 Spawn button click
 3. 🔫 Kill button click
+4. 💀 Kill All button click
+5. 🧹 Clear Logs button click
 
-**What it does:**
+**Logic Flow:**
 ```
-If clock tick:
-    - Decrease "Time Left" for each process
-    - Remove processes with time_left == 0
-    - Log completion events
-
-If spawn button clicked:
-    - Generate new PID (1000-9999)
-    - Create process dict
-    - Add to process list
-    - Log creation event
-
-If kill button clicked:
-    - Remove selected process from list
-    - Log termination event
-```
-
-**Returns:**
-- Updated process list
-- Updated kernel log
-- Clear selection highlight
-
-### Callback 2: render_system_metrics()
-**Purpose:** Update visualizations with current data
-
-**Input:**
-- Current list of processes
-
-**Calculates:**
-```
-total_cpu = sum of all CPU % values
-total_memory = sum of all RAM MB values
-total_disk = sum of all Disk I/O values
+If clear-log → reset log entries only
+If kill-all → terminate all processes, update stats
+If clock-tick:
+    Check for deadlock (over-allocation)
+    Apply scheduling algorithm
+    Detect executing process (compare Time Left before/after)
+    Log completed processes
+    Update Gantt, History, Stats
+    Annotate State (RUNNING/READY) and Priority
+If spawn-btn:
+    Validate name exists
+    Check admission control (resource limits)
+    Create process or log denial
+If kill-btn:
+    Remove selected processes, log kills
+Finalize: set active count, limit log size
 ```
 
-**Creates:**
-1. **CPU Gauge** - Dial chart showing CPU %
-2. **Memory Bar** - Horizontal bar showing RAM
-3. **Disk Bar** - Horizontal bar showing Disk I/O
+### Render System Metrics: `render_system_metrics()`
+**Creates 3 charts:**
+1. **CPU Gauge** — `go.Indicator` with color thresholds (cyan/yellow/red)
+2. **Memory Bar** — Overlaid `go.Bar` (background track + filled usage)
+3. **Disk Bar** — Same overlay pattern as memory
 
-**Returns:**
-- Process table data
-- Three updated chart figures
+**Also builds table data**, filtering to display columns only (strips internal fields like `time_used`).
+
+### History Chart: `render_history_chart()`
+- Three `go.Scatter` traces with `fill='tozeroy'` and `shape='spline'`
+- Sliding 60-point x-axis window
+- Unified hover mode
+
+### Gantt Chart: `render_gantt_chart()`
+- One `go.Bar` trace per PID, colored from a 10-color palette
+- IDLE periods shown in dark gray (PID 0)
+- Horizontal legend at top
 
 ---
 
-## 🎨 UI Layout Explained
+## 🎨 CSS Architecture
 
-### Three-Column Layout
-```
-┌────────────────────────────────────────┐
-│  HEADER: "OS Resource Dashboard v2.0"  │
-├────────────────────────────────────────┤
-│  ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │ System   │ │ Process  │ │ Kernel │ │
-│  │ Load     │ │ Injector │ │ Logs   │ │
-│  │          │ │          │ │        │ │
-│  │ CPU      │ │ Sliders  │ │ Events │ │
-│  │ RAM      │ │ Buttons  │ │        │ │
-│  │ Disk     │ │          │ │        │ │
-│  └──────────┘ └──────────┘ └────────┘ │
-├────────────────────────────────────────┤
-│  PROCESS TABLE                         │
-│  ┌──────────────────────────────────┐  │
-│  │ PID | Name | CPU | RAM | Time... │  │
-│  │ 1234| app  | 25  | 512 | 12     │  │
-│  └──────────────────────────────────┘  │
-│  [SIGKILL Button]                      │
-└────────────────────────────────────────┘
-```
+### Animation Keyframes
+| Animation | Effect | Used On |
+|-----------|--------|---------|
+| `neonPulse` | Glowing text shadow | Dashboard title |
+| `borderGlow` | Pulsing border color | `.glass-card` |
+| `slideInLeft` | Fade-in from left | Log entries |
+| `pulseRed` | Flashing red background | Deadlock logs |
 
-### Component Types Used
+### Card Classes
+| Class | Background | Border | Used For |
+|-------|-----------|--------|----------|
+| `.glass-card` | Dark blue gradient | Cyan glow | System Load, Process Injector, History |
+| `.glass-card-warm` | Dark amber gradient | Yellow border | Process Control section |
+| `.glass-card-terminal` | Near-black gradient | Cyan border | Kernel Logs |
+| `.stat-card` | Dark blue, no gradient | Cyan border | Stats ribbon items |
 
-| Component | Purpose |
-|-----------|---------|
-| `html.Div` | Container/layout grouping |
-| `html.H1, H3` | Headings |
-| `dcc.Graph` | Charts (Plotly) |
-| `dcc.Input` | Text input field |
-| `dcc.Slider` | Range input |
-| `html.Button` | Clickable button |
-| `dcc.Textarea` | Multi-line text display |
-| `dash_table.DataTable` | Tabular data display |
-| `dcc.Store` | Client-side data storage |
-| `dcc.Interval` | Timer/clock trigger |
+### Log Entry Classes
+| Class | Color | Border | Event Type |
+|-------|-------|--------|------------|
+| `.log-approved` | Cyan | Cyan | Process spawned |
+| `.log-denied` | Red | Red | Admission denied |
+| `.log-kill` | Red | Red | Process killed |
+| `.log-exit` | Gray | Gray | Process completed |
+| `.log-scheduler` | Blue | Blue | Scheduler info |
+| `.log-deadlock` | Red + pulse | Red | Deadlock detected |
+| `.log-warn` | Yellow | Yellow | Warnings |
+| `.log-system` | Cyan | Cyan | System messages |
 
 ---
 
-## 🔐 State Management
+## 🔐 State Management (5 Stores)
 
-### dcc.Store (Hidden Data Container)
+| Store | Type | Initial Value |
+|-------|------|---------------|
+| `state-store` | List[Dict] | `[]` |
+| `log-store` | List[Dict] | `[{level: 'system', msg: 'Kernel Initialized'}]` |
+| `stats-store` | Dict | `{spawned: 0, completed: 0, killed: 0, uptime: 0, active: 0}` |
+| `gantt-store` | List[Dict] | `[]` |
+| `history-store` | Dict[str, List] | `{cpu: [], mem: [], disk: []}` |
+
+### Process Dict Structure
 ```python
-dcc.Store(id='state-store', data=[])
-```
-- Stores the list of processes
-- Updated by os_kernel_loop()
-- Read by render_system_metrics()
-- Persists during session (resets on page refresh)
-
-### dcc.Interval (Timer)
-```python
-dcc.Interval(id='clock-tick', interval=1000, n_intervals=0)
-```
-- Triggers callback every 1000 milliseconds (1 second)
-- Drives process timer countdown
-- Enables real-time updates
-
----
-
-## 📊 Chart Creation
-
-### CPU Gauge (Speedometer)
-```python
-go.Indicator(
-    mode="gauge+number",
-    value=cpu_total,  # Current value
-    gauge={
-        'axis': {'range': [None, 100]},      # 0-100% scale
-        'bar': {'color': '#00ffcc'},         # Green bar
-        'steps': [{'range': [85, 100], ...}] # Red zone alert
-    }
-)
-```
-
-### Memory Bar
-```python
-go.Bar(
-    x=[memory_total],    # Value
-    y=['RAM'],           # Label
-    orientation='h',     # Horizontal
-    marker_color='#ffcc00'  # Yellow
-)
+{
+    'PID': 1234,           # Random 1000–9999
+    'Name': 'WebBrowser',  # User-provided or preset
+    'CPU (%)': 25,         # CPU requirement
+    'RAM (MB)': 512,       # Memory requirement
+    'Disk I/O': 30,        # Disk I/O requirement
+    'Time Left (s)': 28,   # Remaining lifetime (decremented by scheduler)
+    'State': 'RUNNING',    # Set by kernel loop (RUNNING or READY)
+    'Priority': 1,         # Queue position after scheduling
+    'time_used': 5,        # Internal: Round-Robin quantum tracker (not displayed)
+}
 ```
 
 ---
@@ -290,69 +280,27 @@ go.Bar(
 
 ### To Understand This Code:
 
-1. **Read the docstrings** in each function
+1. **Read the constants** — `COLORS`, `RESOURCE_LIMITS`, `PROCESS_PRESETS`, `ALGO_INFO`
 2. **Trace a process lifecycle:**
-   - Click "Spawn Process" → os_kernel_loop() called
-   - Process added to list → stored in dcc.Store
-   - render_system_metrics() called → charts update
-   - Each second: os_kernel_loop() decrements timers
-   - Process timeout → logs [EXIT] event
-
-3. **Modify and experiment:**
-   - Change a color in COLORS dict
-   - Adjust a limit in RESOURCE_LIMITS
-   - Add a new chart or label
+   - Click preset → `fill_preset()` fills form
+   - Click Spawn → `os_kernel_loop()` creates process
+   - Process stored in `state-store` → `render_system_metrics()` updates charts
+   - Each tick: scheduler selects a process → State set to RUNNING
+   - Time Left reaches 0 → process removed, `[EXIT]` logged
+3. **Study the scheduling algorithms** — each is a standalone function
+4. **Modify and experiment** — change colors, add a new preset, try new algorithms
 
 ---
 
-## 🔧 Common Modifications
+## 🚀 Next Steps
 
-### Change Dark Theme to Light
-```python
-COLORS = {
-    'background': '#ffffff',
-    'surface': '#f5f5f5',
-    'text_primary': '#000000',
-    # ... etc
-}
-```
-
-### Add More Resource Types
-```python
-RESOURCE_LIMITS = {
-    'gpu_min': 0,
-    'gpu_max': 100,
-    'gpu_default': 10,
-    # ... etc
-}
-# Then add sliders in the UI layout
-```
-
-### Persist Data on Restart
-```python
-import json
-# Save to file before exiting
-# Load from file on startup
-```
+- Add GPU resource simulation
+- Data persistence (export logs/stats to CSV)
+- Multi-core CPU simulation
+- Network I/O resource type
+- Drag-and-drop process priority reordering
+- Algorithm comparison mode (side-by-side)
 
 ---
 
-## 📈 Performance Considerations
-
-- **Update Interval:** 1 second (adjust `interval=1000` in dcc.Interval)
-- **Log Size:** Limited to 20 lines (adjust in RESOURCE_LIMITS['max_log_lines'])
-- **Max Processes:** No hard limit, but UI slows with 100+ processes
-- **Memory:** Grows as processes are created (cycle them to test limits)
-
----
-
-## 🚀 Next Steps to Learn
-
-1. **Dash Tutorial:** https://dash.plotly.com/
-2. **Plotly Graphs:** https://plotly.com/python/
-3. **HTML/CSS Basics:** Essential for UI customization
-4. **Python Web Apps:** Framework concepts & patterns
-
----
-
-This code demonstrates solid practices: clear organization, reusable components, centralized configuration, and comprehensive documentation! 🎉
+This code demonstrates solid practices: clean organization, centralized configuration, 10 modular callbacks, and comprehensive documentation! 🎉

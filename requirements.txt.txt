@@ -1,6 +1,0 @@
-dash>=2.14.0
-plotly>=5.17.0
-pandas>=2.0.0
-
-to start pip type
-pip install -r requirements.txt
